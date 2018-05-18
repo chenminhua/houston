@@ -7,9 +7,12 @@ import (
 	"net"
 	"houston/broker"
 	"log"
-	"reflect"
 	"encoding/json"
 	"strconv"
+	"houston/netpoll"
+	"fmt"
+	"reflect"
+	"errors"
 )
 
 // https://medium.freecodecamp.org/million-websockets-and-go-cc58418460bb
@@ -19,6 +22,8 @@ import (
 
 // 如何去标示一个websocket连接呢？？
 // connect的时候去http header里面拿token，解开token后把userId存下来
+
+// https://www.jianshu.com/p/c322edca985f
 
 var connPool = make(map[string]net.Conn)
 
@@ -47,11 +52,17 @@ func main() {
 			}
 		}
 	}()
-
 	setUpServer()
+
+
 }
 
 func setUpServer() {
+
+	poller, err := netpoll.New(nil)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	http.ListenAndServe(":8087", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 在UpGrade之前完成鉴权
@@ -60,22 +71,37 @@ func setUpServer() {
 		connPool[authToken] = conn
 		HandleError(err)
 
-		// 给每个长连接创建一个goroutine (仅仅为了监视websocket的状态？？)
-		go func() {
-			defer cleanUpConn(conn, authToken)
-			for {
-				msg, op, err := wsutil.ReadClientData(conn)
-				if reflect.TypeOf(err) == reflect.TypeOf(wsutil.ClosedError{}) {
-					break;
-				} else {
-					HandleError(err)
-				}
-				if op == ws.OpText {
-					err = wsutil.WriteServerMessage(conn, ws.OpText, msg)
-					HandleError(err)
-				}
+		fd, _:= getFileDescriptor(conn)
+		desc := netpoll.NewDesc(fd, netpoll.EventRead)
+
+		poller.Start(desc, func(ev netpoll.Event) {
+			msg, op, err := wsutil.ReadClientData(conn)
+			if reflect.TypeOf(err) == reflect.TypeOf(wsutil.ClosedError{}) {
+			} else {
+				HandleError(err)
 			}
-		}()
+			if op == ws.OpText {
+				err = wsutil.WriteServerMessage(conn, ws.OpText, msg)
+				HandleError(err)
+			}
+		})
+
+		// 给每个长连接创建一个goroutine (仅仅为了监视websocket的状态？？)
+		//go func() {
+		//	defer cleanUpConn(conn, authToken)
+		//	for {
+		//		msg, op, err := wsutil.ReadClientData(conn)
+		//		if reflect.TypeOf(err) == reflect.TypeOf(wsutil.ClosedError{}) {
+		//			break;
+		//		} else {
+		//			HandleError(err)
+		//		}
+		//		if op == ws.OpText {
+		//			err = wsutil.WriteServerMessage(conn, ws.OpText, msg)
+		//			HandleError(err)
+		//		}
+		//	}
+		//}()
 	}))
 }
 
@@ -88,6 +114,20 @@ func HandleError(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func getFileDescriptor(conn net.Conn) (fd uintptr, err error) {
+	tcpConn, ok := conn.(*net.TCPConn)
+	if !ok {
+		return 0, errors.New("not a TCPConn")
+	}
+
+	file, err := tcpConn.File()
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+	return file.Fd(), nil
 }
 
 
