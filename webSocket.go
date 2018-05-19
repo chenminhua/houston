@@ -53,8 +53,6 @@ func main() {
 		}
 	}()
 	setUpServer()
-
-
 }
 
 func setUpServer() {
