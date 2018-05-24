@@ -56,7 +56,8 @@ func PubHandler (w http.ResponseWriter, r *http.Request) {
 
 	for _, i := range message.Receivers {
 		println(i)
-		conn := socket.ConnMap[strconv.Itoa(i)]
+
+		conn := socket.CPoll.Get(strconv.Itoa(i))
 		if conn != nil {
 			err = wsutil.WriteServerMessage(conn, ws.OpText, []byte(message.Content))
 			println("err...", err)
@@ -67,5 +68,5 @@ func PubHandler (w http.ResponseWriter, r *http.Request) {
 }
 
 func SocketListHandler (w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, len(socket.ConnMap));
+	fmt.Fprintln(w, len(socket.CPoll.ConnMap));
 }

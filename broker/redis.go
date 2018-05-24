@@ -49,7 +49,7 @@ func (c *Client) Start() {
 		}
 
 		for _, i := range res.Receivers {
-			conn := socket.ConnMap[strconv.Itoa(i)]
+			conn := socket.CPoll.Get(strconv.Itoa(i))
 			if conn != nil {
 				err = wsutil.WriteServerMessage(conn, ws.OpText, []byte(res.Content))
 				log.Fatal(err)
