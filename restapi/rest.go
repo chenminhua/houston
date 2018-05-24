@@ -27,6 +27,7 @@ func (s *Server) Start() {
 	router := mux.NewRouter()
 	router.HandleFunc("/ping", PingHandler)
 	router.HandleFunc("/pub", PubHandler)
+	router.HandleFunc("/sockets", SocketListHandler)
 	http.Handle("/", router)
 	println(s.Port)
 	log.Fatal(http.ListenAndServe(s.Port, nil))
@@ -63,4 +64,8 @@ func PubHandler (w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintln(w, "pub")
+}
+
+func SocketListHandler (w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, len(socket.ConnMap));
 }

@@ -6,11 +6,6 @@ Its API is intended for monitoring multiple file descriptors to see if I/O is
 possible on any of them. It supports edge-triggered and level-triggered
 interfaces.
 
-To get more info you could look at operating system API documentation of
-particular netpoll implementations:
-	- epoll on linux;
-	- kqueue on bsd;
-
 The Handle function creates netpoll.Desc for further use in Poller's methods:
 
 	desc, err := netpoll.Handle(conn, netpoll.EventRead | netpoll.EventEdgeTriggered)

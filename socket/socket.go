@@ -8,14 +8,18 @@ import (
 	"github.com/gobwas/ws/wsutil"
 	"reflect"
 	"net"
-	"errors"
 	"log"
 )
 
+// golang内建的map不是并发安全的
+// 解决方案一     （csp）
+// 解决方案二     （加锁）
+// 解决方案三     （sync.Map）
 
 var ConnMap = make(map[string]net.Conn)
 
-func SetUpWebSocketServer() {
+func
+SetUpWebSocketServer() {
 
 	poller, err := netpoll.New(nil)
 	if err != nil {
@@ -29,12 +33,18 @@ func SetUpWebSocketServer() {
 		ConnMap[authToken] = conn
 		HandleError(err)
 
-		fd, _:= getFileDescriptor(conn)
-		desc := netpoll.NewDesc(fd, netpoll.EventRead)
+		//fd, _:= getFileDescriptor(conn)
+		//		//println(fd)
+		//		//desc := netpoll.NewDesc(fd, netpoll.EventRead)
+
+		desc, err := netpoll.Handle(conn, netpoll.EventRead | netpoll.EventWrite | netpoll.EventEdgeTriggered)
+		HandleError(err)
 
 		poller.Start(desc, func(ev netpoll.Event) {
+			println("something")
 			msg, op, err := wsutil.ReadClientData(conn)
 			if reflect.TypeOf(err) == reflect.TypeOf(wsutil.ClosedError{}) {
+				println("cleanUp", op, authToken)
 				cleanUpConn(conn, authToken)
 			} else {
 				HandleError(err)
@@ -44,27 +54,8 @@ func SetUpWebSocketServer() {
 				HandleError(err)
 			}
 		})
-
-		// 给每个长连接创建一个goroutine (仅仅为了监视websocket的状态？？)
-		// go receiveMessage(conn, authToken)
 	}))
 }
-
-
-func getFileDescriptor(conn net.Conn) (fd uintptr, err error) {
-	tcpConn, ok := conn.(*net.TCPConn)
-	if !ok {
-		return 0, errors.New("not a TCPConn")
-	}
-
-	file, err := tcpConn.File()
-	if err != nil {
-		return 0, err
-	}
-	defer file.Close()
-	return file.Fd(), nil
-}
-
 
 func HandleError(err error) {
 	if err != nil {
